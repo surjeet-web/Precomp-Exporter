@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CompBuddy Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #2d2d2d; color: white; }
+        .debug-info { background: #1e1e1e; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ff3b30; color: white; }
+        .success { background: #007aff; color: white; }
+        button { padding: 10px 20px; margin: 5px; background: #007aff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>CompBuddy Debug Test</h1>
+    <div id="debug-output"></div>
+    
+    <button onclick="testCSInterface()">Test CSInterface</button>
+    <button onclick="testJSXScript()">Test JSX Script</button>
+    <button onclick="testSecurityFunctions()">Test Security Functions</button>
+    <button onclick="clearOutput()">Clear Output</button>
+    
+    <script>
+        var debugOutput = document.getElementById('debug-output');
+        
+        function addDebugInfo(message, type) {
+            var div = document.createElement('div');
+            div.className = 'debug-info ' + (type || '');
+            div.innerHTML = '<strong>' + new Date().toLocaleTimeString() + ':</strong> ' + message;
+            debugOutput.appendChild(div);
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+        
+        function clearOutput() {
+            debugOutput.innerHTML = '';
+        }
+        
+        function testCSInterface() {
+            addDebugInfo('Testing CSInterface...');
+            
+            try {
+                if (typeof CSInterface === 'undefined') {
+                    addDebugInfo('❌ CSInterface is not defined. Make sure you\'re running this in After Effects CEP environment.', 'error');
+                    return;
+                }
+                
+                var csInterface = new CSInterface();
+                addDebugInfo('✅ CSInterface created successfully', 'success');
+                
+                // Test basic CSInterface functionality
+                var hostEnv = csInterface.getHostEnvironment();
+                addDebugInfo('Host Environment: ' + JSON.stringify(hostEnv));
+                
+            } catch (e) {
+                addDebugInfo('❌ CSInterface Error: ' + e.toString(), 'error');
+            }
+        }
+        
+        function testJSXScript() {
+            addDebugInfo('Testing JSX Script...');
+            
+            try {
+                if (typeof CSInterface === 'undefined') {
+                    addDebugInfo('❌ CSInterface not available for JSX testing', 'error');
+                    return;
+                }
+                
+                var csInterface = new CSInterface();
+                
+                // Test simple JSX call
+                addDebugInfo('Calling simple JSX test...');
+                csInterface.evalScript('1 + 1', function(result) {
+                    if (result === '2') {
+                        addDebugInfo('✅ Basic JSX evaluation works: ' + result, 'success');
+                        
+                        // Test our custom function
+                        addDebugInfo('Testing selectLibraryFolder function...');
+                        csInterface.evalScript('typeof selectLibraryFolder', function(result) {
+                            if (result === 'function') {
+                                addDebugInfo('✅ selectLibraryFolder function exists', 'success');
+                            } else {
+                                addDebugInfo('❌ selectLibraryFolder function not found. Result: ' + result, 'error');
+                            }
+                        });
+                        
+                    } else {
+                        addDebugInfo('❌ Basic JSX evaluation failed: ' + result, 'error');
+                    }
+                });
+                
+            } catch (e) {
+                addDebugInfo('❌ JSX Script Error: ' + e.toString(), 'error');
+            }
+        }
+        
+        function testSecurityFunctions() {
+            addDebugInfo('Testing Security Functions...');
+            
+            try {
+                // Test sanitizeText
+                function sanitizeText(text) {
+                    if (!text) return '';
+                    return String(text).replace(/[<>&"']/g, function(match) {
+                        switch(match) {
+                            case '<': return '&lt;';
+                            case '>': return '&gt;';
+                            case '&': return '&amp;';
+                            case '"': return '&quot;';
+                            case "'": return '&#x27;';
+                            default: return match;
+                        }
+                    });
+                }
+                
+                var testInput = '<script>alert("test")</script>';
+                var sanitized = sanitizeText(testInput);
+                
+                if (sanitized.includes('&lt;') && sanitized.includes('&gt;')) {
+                    addDebugInfo('✅ sanitizeText function works correctly', 'success');
+                } else {
+                    addDebugInfo('❌ sanitizeText function failed', 'error');
+                }
+                
+                // Test validateCategoryName
+                function validateCategoryName(name) {
+                    if (!name || typeof name !== 'string') return false;
+                    if (name.length > 50) return false;
+                    if (/[<>:"|?*\\\/]/.test(name)) return false;
+                    return true;
+                }
+                
+                if (validateCategoryName('Valid Name') && !validateCategoryName('Invalid<Name>')) {
+                    addDebugInfo('✅ validateCategoryName function works correctly', 'success');
+                } else {
+                    addDebugInfo('❌ validateCategoryName function failed', 'error');
+                }
+                
+            } catch (e) {
+                addDebugInfo('❌ Security Functions Error: ' + e.toString(), 'error');
+            }
+        }
+        
+        // Auto-run basic tests
+        addDebugInfo('CompBuddy Debug Test Started');
+        addDebugInfo('User Agent: ' + navigator.userAgent);
+        addDebugInfo('Location: ' + window.location.href);
+        
+        setTimeout(function() {
+            testCSInterface();
+            setTimeout(testSecurityFunctions, 1000);
+        }, 500);
+    </script>
+</body>
+</html>

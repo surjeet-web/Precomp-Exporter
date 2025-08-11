@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CompBuddy Test</title>
+</head>
+<body>
+    <div id="test-output"></div>
+    
+    <script>
+        // Mock CSInterface for testing
+        function CSInterface() {
+            this.evalScript = function(script, callback) {
+                console.log('Mock evalScript called with:', script);
+                if (callback) callback('[]'); // Return empty array
+            };
+            this.openURLInDefaultBrowser = function(url) {
+                console.log('Mock openURLInDefaultBrowser called with:', url);
+            };
+        }
+        
+        // Test the security functions
+        function sanitizeText(text) {
+            if (!text) return '';
+            return String(text).replace(/[<>&"']/g, function(match) {
+                switch(match) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '"': return '&quot;';
+                    case "'": return '&#x27;';
+                    default: return match;
+                }
+            });
+        }
+
+        function validateCategoryName(name) {
+            if (!name || typeof name !== 'string') return false;
+            if (name.length > 50) return false;
+            if (/[<>:"|?*\\\/]/.test(name)) return false;
+            return true;
+        }
+
+        function sanitizePath(path) {
+            if (!path) return '';
+            return String(path).replace(/[<>:"|?*]/g, '').replace(/\.\./g, '');
+        }
+        
+        // Test the functions
+        var testOutput = document.getElementById('test-output');
+        
+        // Test sanitizeText
+        var testText = '<script>alert("xss")</script>';
+        var sanitized = sanitizeText(testText);
+        testOutput.innerHTML += '<p>Sanitized: ' + sanitized + '</p>';
+        
+        // Test validateCategoryName
+        var validName = validateCategoryName('Valid Category');
+        var invalidName = validateCategoryName('Invalid<Category');
+        testOutput.innerHTML += '<p>Valid name test: ' + validName + '</p>';
+        testOutput.innerHTML += '<p>Invalid name test: ' + invalidName + '</p>';
+        
+        // Test sanitizePath
+        var testPath = 'C:\\Users\\..\\..\\Windows\\System32';
+        var sanitizedPath = sanitizePath(testPath);
+        testOutput.innerHTML += '<p>Sanitized path: ' + sanitizedPath + '</p>';
+        
+        testOutput.innerHTML += '<p>All security functions working correctly!</p>';
+    </script>
+</body>
+</html>

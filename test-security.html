@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CompBuddy Security Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .pass { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .test-section { margin: 20px 0; border: 1px solid #ddd; padding: 15px; }
+    </style>
+</head>
+<body>
+    <h1>CompBuddy Security Test Suite</h1>
+    <div id="test-results"></div>
+    
+    <script>
+        // Copy security functions from main.js
+        function sanitizeText(text) {
+            if (!text) return '';
+            return String(text).replace(/[<>&"']/g, function(match) {
+                switch(match) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '"': return '&quot;';
+                    case "'": return '&#x27;';
+                    default: return match;
+                }
+            });
+        }
+
+        function validateCategoryName(name) {
+            if (!name || typeof name !== 'string') return false;
+            if (name.length > 50) return false;
+            if (/[<>:"|?*\\\/]/.test(name)) return false;
+            return true;
+        }
+
+        function sanitizePath(path) {
+            if (!path) return '';
+            return String(path).replace(/[<>:"|?*]/g, '').replace(/\.\./g, '');
+        }
+        
+        // Test framework
+        var testResults = document.getElementById('test-results');
+        var testCount = 0;
+        var passCount = 0;
+        
+        function runTest(testName, testFunction) {
+            testCount++;
+            try {
+                var result = testFunction();
+                if (result.pass) {
+                    passCount++;
+                    addResult(testName, 'PASS', result.message, 'pass');
+                } else {
+                    addResult(testName, 'FAIL', result.message, 'fail');
+                }
+            } catch (e) {
+                addResult(testName, 'ERROR', e.toString(), 'fail');
+            }
+        }
+        
+        function addResult(testName, status, message, className) {
+            var div = document.createElement('div');
+            div.className = 'test-result ' + className;
+            div.innerHTML = '<strong>' + status + ':</strong> ' + testName + ' - ' + message;
+            testResults.appendChild(div);
+        }
+        
+        function addSection(title) {
+            var div = document.createElement('div');
+            div.className = 'test-section';
+            div.innerHTML = '<h2>' + title + '</h2>';
+            testResults.appendChild(div);
+        }
+        
+        // XSS Prevention Tests
+        addSection('XSS Prevention Tests');
+        
+        runTest('Basic XSS Script Tag', function() {
+            var input = '<script>alert("xss")</script>';
+            var output = sanitizeText(input);
+            var expected = '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;';
+            return {
+                pass: output === expected,
+                message: 'Input: ' + input + ' | Output: ' + output
+            };
+        });
+        
+        runTest('HTML Injection', function() {
+            var input = '<img src="x" onerror="alert(1)">';
+            var output = sanitizeText(input);
+            var hasNoScript = !output.includes('<') && !output.includes('>');
+            return {
+                pass: hasNoScript,
+                message: 'Successfully escaped HTML tags: ' + output
+            };
+        });
+        
+        runTest('JavaScript Event Handler', function() {
+            var input = 'onclick="alert(\'xss\')"';
+            var output = sanitizeText(input);
+            var isSafe = !output.includes('onclick=') || output.includes('&quot;');
+            return {
+                pass: isSafe,
+                message: 'Event handler sanitized: ' + output
+            };
+        });
+        
+        // Path Traversal Tests
+        addSection('Path Traversal Prevention Tests');
+        
+        runTest('Directory Traversal Attack', function() {
+            var input = 'C:\\Users\\..\\..\\Windows\\System32';
+            var output = sanitizePath(input);
+            var isSafe = !output.includes('..');
+            return {
+                pass: isSafe,
+                message: 'Path traversal removed: ' + output
+            };
+        });
+        
+        runTest('Unix Path Traversal', function() {
+            var input = '/home/user/../../etc/passwd';
+            var output = sanitizePath(input);
+            var isSafe = !output.includes('..');
+            return {
+                pass: isSafe,
+                message: 'Unix path traversal removed: ' + output
+            };
+        });
+        
+        runTest('Dangerous Characters Removal', function() {
+            var input = 'file<>:"|?*.txt';
+            var output = sanitizePath(input);
+            var isSafe = !/[<>:"|?*]/.test(output);
+            return {
+                pass: isSafe,
+                message: 'Dangerous chars removed: ' + output
+            };
+        });
+        
+        // Input Validation Tests
+        addSection('Input Validation Tests');
+        
+        runTest('Valid Category Name', function() {
+            var input = 'Valid Category Name';
+            var isValid = validateCategoryName(input);
+            return {
+                pass: isValid === true,
+                message: 'Valid category accepted: ' + input
+            };
+        });
+        
+        runTest('Invalid Category - Too Long', function() {
+            var input = 'This is a very long category name that exceeds the fifty character limit';
+            var isValid = validateCategoryName(input);
+            return {
+                pass: isValid === false,
+                message: 'Long category rejected: ' + input.length + ' chars'
+            };
+        });
+        
+        runTest('Invalid Category - Special Characters', function() {
+            var input = 'Invalid<Category>';
+            var isValid = validateCategoryName(input);
+            return {
+                pass: isValid === false,
+                message: 'Special characters rejected: ' + input
+            };
+        });
+        
+        runTest('Invalid Category - Null/Undefined', function() {
+            var isValidNull = validateCategoryName(null);
+            var isValidUndefined = validateCategoryName(undefined);
+            var isValidEmpty = validateCategoryName('');
+            return {
+                pass: !isValidNull && !isValidUndefined && !isValidEmpty,
+                message: 'Null/undefined/empty rejected'
+            };
+        });
+        
+        // Edge Cases
+        addSection('Edge Case Tests');
+        
+        runTest('Empty String Handling', function() {
+            var sanitizedText = sanitizeText('');
+            var sanitizedPath = sanitizePath('');
+            return {
+                pass: sanitizedText === '' && sanitizedPath === '',
+                message: 'Empty strings handled correctly'
+            };
+        });
+        
+        runTest('Null/Undefined Handling', function() {
+            var sanitizedNull = sanitizeText(null);
+            var sanitizedUndefined = sanitizeText(undefined);
+            return {
+                pass: sanitizedNull === '' && sanitizedUndefined === '',
+                message: 'Null/undefined converted to empty string'
+            };
+        });
+        
+        runTest('Unicode Characters', function() {
+            var input = 'Café & Résumé';
+            var output = sanitizeText(input);
+            var hasUnicode = output.includes('Café') && output.includes('Résumé');
+            return {
+                pass: hasUnicode && output.includes('&amp;'),
+                message: 'Unicode preserved, ampersand escaped: ' + output
+            };
+        });
+        
+        // Summary
+        setTimeout(function() {
+            addSection('Test Summary');
+            var summary = document.createElement('div');
+            summary.className = 'test-result ' + (passCount === testCount ? 'pass' : 'fail');
+            summary.innerHTML = '<strong>SUMMARY:</strong> ' + passCount + '/' + testCount + ' tests passed';
+            testResults.appendChild(summary);
+            
+            if (passCount === testCount) {
+                var success = document.createElement('div');
+                success.className = 'test-result pass';
+                success.innerHTML = '<strong>🛡️ SECURITY STATUS: SECURE</strong> - All security tests passed!';
+                testResults.appendChild(success);
+            } else {
+                var warning = document.createElement('div');
+                warning.className = 'test-result fail';
+                warning.innerHTML = '<strong>⚠️ SECURITY STATUS: VULNERABLE</strong> - Some tests failed!';
+                testResults.appendChild(warning);
+            }
+        }, 100);
+    </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CompBuddy Minimal Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #2d2d2d; color: white; }
+        button { padding: 15px 30px; font-size: 16px; background: #007aff; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 10px; }
+        button:hover { background: #0056b3; }
+        #output { background: #1e1e1e; padding: 15px; margin: 20px 0; border-radius: 5px; min-height: 100px; }
+    </style>
+</head>
+<body>
+    <h1>CompBuddy Minimal Test</h1>
+    <button onclick="testBasic()">Test Basic Functionality</button>
+    <div id="output">Click the button to test...</div>
+    
+    <script src="./js/CSInterface.js"></script>
+    <script>
+        function testBasic() {
+            var output = document.getElementById('output');
+            output.innerHTML = 'Testing...<br>';
+            
+            try {
+                // Test 1: CSInterface
+                if (typeof CSInterface === 'undefined') {
+                    output.innerHTML += '❌ CSInterface not loaded<br>';
+                    return;
+                }
+                output.innerHTML += '✅ CSInterface loaded<br>';
+                
+                // Test 2: Create CSInterface instance
+                var csInterface = new CSInterface();
+                output.innerHTML += '✅ CSInterface instance created<br>';
+                
+                // Test 3: Simple evalScript
+                csInterface.evalScript('1 + 1', function(result) {
+                    output.innerHTML += '✅ EvalScript works: 1 + 1 = ' + result + '<br>';
+                    
+                    // Test 4: Check if our JSX functions exist
+                    csInterface.evalScript('typeof selectLibraryFolder', function(result) {
+                        if (result === 'function') {
+                            output.innerHTML += '✅ selectLibraryFolder function found<br>';
+                        } else {
+                            output.innerHTML += '❌ selectLibraryFolder function not found: ' + result + '<br>';
+                        }
+                    });
+                });
+                
+            } catch (e) {
+                output.innerHTML += '❌ Error: ' + e.toString() + '<br>';
+            }
+        }
+    </script>
+</body>
+</html>
