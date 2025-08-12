@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CompBuddy Composition Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #2d2d2d; color: white; }
+        button { padding: 15px 30px; font-size: 16px; background: #007aff; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 10px; }
+        button:hover { background: #0056b3; }
+        #output { background: #1e1e1e; padding: 15px; margin: 20px 0; border-radius: 5px; min-height: 200px; white-space: pre-wrap; }
+        .instructions { background: #444; padding: 15px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>CompBuddy Composition Selection Test</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Create a new composition in After Effects</li>
+            <li>Select the composition in the Project Panel OR open it in the timeline</li>
+            <li>Click the test buttons below</li>
+        </ol>
+    </div>
+    
+    <button onclick="testCompositionSelection()">Test Composition Selection</button>
+    <button onclick="testStashFunction()">Test Stash Function</button>
+    <button onclick="clearOutput()">Clear Output</button>
+    
+    <div id="output">Click a test button to begin...</div>
+    
+    <script src="./js/CSInterface.js"></script>
+    <script>
+        var output = document.getElementById('output');
+        
+        function addOutput(message) {
+            output.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearOutput() {
+            output.textContent = '';
+        }
+        
+        function testCompositionSelection() {
+            addOutput('Testing composition selection...');
+            
+            if (typeof CSInterface === 'undefined') {
+                addOutput('❌ CSInterface not available');
+                return;
+            }
+            
+            var csInterface = new CSInterface();
+            
+            // Test if we can detect selected compositions
+            var testScript = `
+                var result = {
+                    activeItem: null,
+                    selection: [],
+                    projectItems: 0
+                };
+                
+                try {
+                    // Check active item
+                    if (app.project.activeItem) {
+                        result.activeItem = {
+                            name: app.project.activeItem.name,
+                            type: app.project.activeItem.typeName,
+                            isComp: app.project.activeItem instanceof CompItem
+                        };
+                    }
+                    
+                    // Check selection
+                    if (app.project.selection) {
+                        for (var i = 0; i < app.project.selection.length; i++) {
+                            var item = app.project.selection[i];
+                            result.selection.push({
+                                name: item.name,
+                                type: item.typeName,
+                                isComp: item instanceof CompItem
+                            });
+                        }
+                    }
+                    
+                    // Count project items
+                    result.projectItems = app.project.items.length;
+                    
+                } catch (e) {
+                    result.error = e.toString();
+                }
+                
+                JSON.stringify(result);
+            `;
+            
+            csInterface.evalScript(testScript, function(result) {
+                try {
+                    var data = JSON.parse(result);
+                    
+                    if (data.error) {
+                        addOutput('❌ Error: ' + data.error);
+                        return;
+                    }
+                    
+                    addOutput('✅ Project has ' + data.projectItems + ' items');
+                    
+                    if (data.activeItem) {
+                        addOutput('📋 Active Item: ' + data.activeItem.name + ' (' + data.activeItem.type + ')');
+                        addOutput('   Is Composition: ' + (data.activeItem.isComp ? '✅ Yes' : '❌ No'));
+                    } else {
+                        addOutput('📋 No active item');
+                    }
+                    
+                    if (data.selection.length > 0) {
+                        addOutput('🎯 Selected Items:');
+                        for (var i = 0; i < data.selection.length; i++) {
+                            var item = data.selection[i];
+                            addOutput('   - ' + item.name + ' (' + item.type + ') - Comp: ' + (item.isComp ? '✅' : '❌'));
+                        }
+                    } else {
+                        addOutput('🎯 No items selected in project panel');
+                    }
+                    
+                } catch (e) {
+                    addOutput('❌ Failed to parse result: ' + e.toString());
+                    addOutput('Raw result: ' + result);
+                }
+            });
+        }
+        
+        function testStashFunction() {
+            addOutput('Testing stash function...');
+            
+            if (typeof CSInterface === 'undefined') {
+                addOutput('❌ CSInterface not available');
+                return;
+            }
+            
+            var csInterface = new CSInterface();
+            
+            // Test the actual stash function with a dummy path
+            csInterface.evalScript('stashSelectedComp("/tmp/test", "TestCategory")', function(result) {
+                addOutput('Stash Result: ' + result);
+                
+                if (result.includes('Error:')) {
+                    addOutput('❌ Stash function returned error');
+                    if (result.includes('Please select a composition')) {
+                        addOutput('💡 Solution: Make sure you have a composition selected or active');
+                    }
+                } else {
+                    addOutput('✅ Stash function executed successfully');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

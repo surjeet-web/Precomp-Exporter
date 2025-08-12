@@ -114,7 +114,7 @@
         }
         browseBtn.addEventListener('click', selectLibraryFolder);
         addBtn.addEventListener('click', addSelectedComp);
-        searchInput.addEventListener('input', renderCompsGrid);
+        searchInput.addEventListener('input', debounceSearch);
         categoryFiltersContainer.addEventListener('click', handleCategoryClick);
         stashGrid.addEventListener('click', handleStashGridClick);
         cancelDeleteBtn.addEventListener('click', function () { deleteModal.style.display = 'none'; });
@@ -188,6 +188,13 @@
             categoryFiltersContainer.appendChild(btn);
         });
     }
+    // Performance optimization: Debounce search
+    var searchDebounceTimer;
+    function debounceSearch() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(renderCompsGrid, 150);
+    }
+
     function renderCompsGrid() {
         var searchTerm = searchInput.value.toLowerCase();
         var filteredComps = allComps.filter(function (comp) { 
@@ -197,86 +204,118 @@
         
         if (filteredComps.length === 0) {
             if (allComps.length === 0 && !window.localStorage.getItem('ae_asset_stash_path')) {
-                showPlaceholder("Select a library folder to begin.");
+                showEmptyState("🗂️", "No Library Selected", "Select a library folder to begin organizing your compositions.");
+            } else if (searchTerm) {
+                showEmptyState("🔍", "No Results Found", "Try adjusting your search terms or check a different category.");
             } else {
-                showPlaceholder("No comps found. Try a different search or category.");
+                showEmptyState("📽️", "No Compositions Yet", "To add compositions:\n1) Select a comp in Project Panel or open in Timeline\n2) Click 'Add Selected Comp'");
             }
             return;
         }
         
-        // Security: Use DOM methods instead of innerHTML to prevent XSS
-        stashGrid.innerHTML = ''; // Clear existing content
+        // Performance: Use DocumentFragment for batch DOM operations
+        var fragment = document.createDocumentFragment();
         
-        filteredComps.forEach(function (comp) {
+        filteredComps.forEach(function (comp, index) {
             // Security: Validate and sanitize all comp data
             if (!comp.uniqueId || !comp.name || !comp.category) return;
             
-            var stashItem = document.createElement('div');
-            stashItem.className = 'stash-item';
-            stashItem.setAttribute('data-unique-id', sanitizeText(comp.uniqueId));
-            stashItem.setAttribute('data-category', sanitizeText(comp.category));
-            stashItem.setAttribute('data-aep-path', sanitizePath(comp.aepPath || ''));
-            stashItem.setAttribute('data-name', sanitizeText(comp.name));
-            
-            // Create item actions
-            var itemActions = document.createElement('div');
-            itemActions.className = 'item-actions';
-            
-            var renameBtn = document.createElement('button');
-            renameBtn.className = 'action-btn rename-btn';
-            renameBtn.title = 'Rename';
-            renameBtn.innerHTML = '<svg class="icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
-            
-            var deleteBtn = document.createElement('button');
-            deleteBtn.className = 'action-btn delete-btn';
-            deleteBtn.title = 'Delete';
-            deleteBtn.innerHTML = '<svg class="icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
-            
-            itemActions.appendChild(renameBtn);
-            itemActions.appendChild(deleteBtn);
-            
-            // Create thumbnail
-            var thumbnail = document.createElement('div');
-            thumbnail.className = 'thumbnail';
-            
-            if (comp.thumbPath) {
-                var img = document.createElement('img');
-                var sanitizedThumbPath = sanitizePath(comp.thumbPath);
-                img.src = 'file:///' + sanitizedThumbPath.replace(/\\/g, '/');
-                img.alt = 'Thumbnail';
-                img.onerror = function() {
-                    this.style.display = 'none';
-                    var noPreview = document.createElement('div');
-                    noPreview.style.cssText = 'color:var(--text-medium); font-size:12px; display:flex; align-items:center; justify-content:center; height:100%;';
-                    noPreview.textContent = 'No Preview';
-                    thumbnail.appendChild(noPreview);
-                };
-                thumbnail.appendChild(img);
-            }
-            
-            // Create item info
-            var itemInfo = document.createElement('div');
-            itemInfo.className = 'item-info';
-            
-            var itemName = document.createElement('p');
-            itemName.className = 'item-name';
-            itemName.title = comp.name;
-            itemName.textContent = comp.name; // Safe text assignment
-            
-            var importBtn = document.createElement('button');
-            importBtn.className = 'import-btn';
-            importBtn.innerHTML = '<svg class="icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Import</span>';
-            
-            itemInfo.appendChild(itemName);
-            itemInfo.appendChild(importBtn);
-            
-            // Assemble the stash item
-            stashItem.appendChild(itemActions);
-            stashItem.appendChild(thumbnail);
-            stashItem.appendChild(itemInfo);
-            
-            stashGrid.appendChild(stashItem);
+            var stashItem = createStashItem(comp, index);
+            fragment.appendChild(stashItem);
         });
+        
+        // Clear and append all at once for better performance
+        stashGrid.innerHTML = '';
+        stashGrid.appendChild(fragment);
+    }
+
+    function createStashItem(comp, index) {
+        var stashItem = document.createElement('div');
+        stashItem.className = 'stash-item';
+        stashItem.style.animationDelay = (index * 0.05) + 's'; // Staggered animation
+        stashItem.setAttribute('data-unique-id', sanitizeText(comp.uniqueId));
+        stashItem.setAttribute('data-category', sanitizeText(comp.category));
+        stashItem.setAttribute('data-aep-path', sanitizePath(comp.aepPath || ''));
+        stashItem.setAttribute('data-name', sanitizeText(comp.name));
+        
+        // Create item actions
+        var itemActions = document.createElement('div');
+        itemActions.className = 'item-actions';
+        
+        var renameBtn = document.createElement('button');
+        renameBtn.className = 'action-btn rename-btn';
+        renameBtn.title = 'Rename Composition';
+        renameBtn.setAttribute('aria-label', 'Rename ' + comp.name);
+        renameBtn.innerHTML = '<svg class="icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
+        
+        var deleteBtn = document.createElement('button');
+        deleteBtn.className = 'action-btn delete-btn';
+        deleteBtn.title = 'Delete Composition';
+        deleteBtn.setAttribute('aria-label', 'Delete ' + comp.name);
+        deleteBtn.innerHTML = '<svg class="icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+        
+        itemActions.appendChild(renameBtn);
+        itemActions.appendChild(deleteBtn);
+        
+        // Create thumbnail with lazy loading
+        var thumbnail = document.createElement('div');
+        thumbnail.className = 'thumbnail';
+        
+        if (comp.thumbPath) {
+            var img = document.createElement('img');
+            var sanitizedThumbPath = sanitizePath(comp.thumbPath);
+            img.src = 'file:///' + sanitizedThumbPath.replace(/\\/g, '/');
+            img.alt = 'Thumbnail for ' + comp.name;
+            img.loading = 'lazy'; // Native lazy loading
+            img.onerror = function() {
+                this.style.display = 'none';
+                var noPreview = document.createElement('div');
+                noPreview.style.cssText = 'color:var(--text-medium); font-size:12px; display:flex; align-items:center; justify-content:center; height:100%; flex-direction:column; gap:4px;';
+                noPreview.innerHTML = '<div style="font-size:24px; opacity:0.5;">🎬</div><div>No Preview</div>';
+                thumbnail.appendChild(noPreview);
+            };
+            thumbnail.appendChild(img);
+        } else {
+            var noPreview = document.createElement('div');
+            noPreview.style.cssText = 'color:var(--text-medium); font-size:12px; display:flex; align-items:center; justify-content:center; height:100%; flex-direction:column; gap:4px;';
+            noPreview.innerHTML = '<div style="font-size:24px; opacity:0.5;">🎬</div><div>No Preview</div>';
+            thumbnail.appendChild(noPreview);
+        }
+        
+        // Create item info
+        var itemInfo = document.createElement('div');
+        itemInfo.className = 'item-info';
+        
+        var itemName = document.createElement('p');
+        itemName.className = 'item-name';
+        itemName.title = comp.name;
+        itemName.textContent = comp.name;
+        
+        var importBtn = document.createElement('button');
+        importBtn.className = 'import-btn';
+        importBtn.setAttribute('aria-label', 'Import ' + comp.name);
+        importBtn.innerHTML = '<svg class="icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Import</span>';
+        
+        itemInfo.appendChild(itemName);
+        itemInfo.appendChild(importBtn);
+        
+        // Assemble the stash item
+        stashItem.appendChild(itemActions);
+        stashItem.appendChild(thumbnail);
+        stashItem.appendChild(itemInfo);
+        
+        return stashItem;
+    }
+
+    function showEmptyState(icon, title, description) {
+        stashGrid.innerHTML = '';
+        var emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        emptyState.innerHTML = 
+            '<div class="empty-state-icon">' + icon + '</div>' +
+            '<div class="empty-state-title">' + sanitizeText(title) + '</div>' +
+            '<div class="empty-state-description">' + sanitizeText(description).replace(/\n/g, '<br>') + '</div>';
+        stashGrid.appendChild(emptyState);
     }
     function showPlaceholder(message) { 
         // Security: Use DOM methods instead of innerHTML
@@ -365,8 +404,18 @@
         // Security: Use JSON.stringify to properly escape parameters
         var scriptCall = 'stashSelectedComp(' + JSON.stringify(sanitizedLibraryPath) + ', ' + JSON.stringify(sanitizedCategoryName) + ')';
         csInterface.evalScript(scriptCall, function (result) {
-            showToast(result, result && result.startsWith('Error'));
-            loadLibrary(sanitizedLibraryPath);
+            var isError = result && result.startsWith('Error');
+            
+            // Provide helpful guidance for composition selection error
+            if (isError && result.includes('Please select a composition')) {
+                showToast('Please select a composition in the Project Panel or open one in the Timeline, then try again.', true);
+            } else {
+                showToast(result, isError);
+            }
+            
+            if (!isError) {
+                loadLibrary(sanitizedLibraryPath);
+            }
             addBtn.disabled = false;
             addBtn.querySelector('span').textContent = 'Add Selected Comp';
         });

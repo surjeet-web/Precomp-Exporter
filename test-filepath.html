@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CompBuddy File Path Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #2d2d2d; color: white; }
+        button { padding: 15px 30px; font-size: 16px; background: #007aff; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 10px; }
+        button:hover { background: #0056b3; }
+        #output { background: #1e1e1e; padding: 15px; margin: 20px 0; border-radius: 5px; min-height: 200px; white-space: pre-wrap; font-family: monospace; }
+        .error { color: #ff3b30; }
+        .success { color: #28a745; }
+    </style>
+</head>
+<body>
+    <h1>CompBuddy File Path Test</h1>
+    
+    <button onclick="testFilePaths()">Test File Path Handling</button>
+    <button onclick="testSafeNaming()">Test Safe File Naming</button>
+    <button onclick="clearOutput()">Clear Output</button>
+    
+    <div id="output">Click a test button to begin...</div>
+    
+    <script src="./js/CSInterface.js"></script>
+    <script>
+        var output = document.getElementById('output');
+        
+        function addOutput(message, type) {
+            var span = document.createElement('span');
+            span.className = type || '';
+            span.textContent = new Date().toLocaleTimeString() + ': ' + message + '\n';
+            output.appendChild(span);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearOutput() {
+            output.innerHTML = '';
+        }
+        
+        function testFilePaths() {
+            addOutput('Testing file path handling...');
+            
+            if (typeof CSInterface === 'undefined') {
+                addOutput('❌ CSInterface not available', 'error');
+                return;
+            }
+            
+            var csInterface = new CSInterface();
+            
+            // Test path cleaning function
+            var testScript = `
+                function testPathCleaning() {
+                    var results = [];
+                    
+                    // Test various path formats
+                    var testPaths = [
+                        "C:\\\\Users\\\\test\\\\file.aep",
+                        "C:/Users/test/file.aep",
+                        "/Users/test/file.aep",
+                        "file with spaces.aep",
+                        "file<>:|?*.aep"
+                    ];
+                    
+                    for (var i = 0; i < testPaths.length; i++) {
+                        var originalPath = testPaths[i];
+                        var cleanPath = originalPath.replace(/\\\\/g, "/");
+                        var safeName = originalPath.replace(/[<>:"|?*\\\\\/]/g, "_");
+                        
+                        results.push({
+                            original: originalPath,
+                            cleaned: cleanPath,
+                            safe: safeName
+                        });
+                    }
+                    
+                    return JSON.stringify(results, null, 2);
+                }
+                
+                testPathCleaning();
+            `;
+            
+            csInterface.evalScript(testScript, function(result) {
+                try {
+                    var data = JSON.parse(result);
+                    addOutput('✅ Path cleaning test results:', 'success');
+                    
+                    data.forEach(function(item, index) {
+                        addOutput('Test ' + (index + 1) + ':');
+                        addOutput('  Original: ' + item.original);
+                        addOutput('  Cleaned:  ' + item.cleaned);
+                        addOutput('  Safe:     ' + item.safe);
+                        addOutput('');
+                    });
+                    
+                } catch (e) {
+                    addOutput('❌ Failed to parse results: ' + e.toString(), 'error');
+                    addOutput('Raw result: ' + result);
+                }
+            });
+        }
+        
+        function testSafeNaming() {
+            addOutput('Testing safe file naming...');
+            
+            if (typeof CSInterface === 'undefined') {
+                addOutput('❌ CSInterface not available', 'error');
+                return;
+            }
+            
+            var csInterface = new CSInterface();
+            
+            var testScript = `
+                function testSafeNaming() {
+                    var results = [];
+                    
+                    // Test various composition names
+                    var testNames = [
+                        "My Composition",
+                        "Title: Main Scene",
+                        "File<Name>With|Special?Characters*",
+                        "Very Long Composition Name That Exceeds Normal Limits And Should Be Truncated",
+                        "Normal_Name_123"
+                    ];
+                    
+                    for (var i = 0; i < testNames.length; i++) {
+                        var originalName = testNames[i];
+                        var safeName = originalName.replace(/[<>:"|?*\\\\\/]/g, "_").substring(0, 50);
+                        var timestamp = new Date().getTime();
+                        var randomNum = Math.floor(Math.random() * 10000);
+                        var uniqueId = "comp_" + timestamp + "_" + randomNum;
+                        var filename = safeName + "_" + uniqueId + ".aep";
+                        
+                        results.push({
+                            original: originalName,
+                            safe: safeName,
+                            filename: filename,
+                            length: filename.length
+                        });
+                    }
+                    
+                    return JSON.stringify(results, null, 2);
+                }
+                
+                testSafeNaming();
+            `;
+            
+            csInterface.evalScript(testScript, function(result) {
+                try {
+                    var data = JSON.parse(result);
+                    addOutput('✅ Safe naming test results:', 'success');
+                    
+                    data.forEach(function(item, index) {
+                        addOutput('Test ' + (index + 1) + ':');
+                        addOutput('  Original:  ' + item.original);
+                        addOutput('  Safe Name: ' + item.safe);
+                        addOutput('  Filename:  ' + item.filename);
+                        addOutput('  Length:    ' + item.length + ' characters');
+                        addOutput('');
+                    });
+                    
+                } catch (e) {
+                    addOutput('❌ Failed to parse results: ' + e.toString(), 'error');
+                    addOutput('Raw result: ' + result);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -56,7 +56,7 @@
     </div>
 
     <!-- === LOADING SPINNER === -->
-    <div id="loading-spinner" style="display: none;"></div>
+    <div id="loading-spinner" style="display: none;" aria-label="Loading..."></div>
 
     <!-- === MAIN APP === -->
     <div id="app">
@@ -69,12 +69,12 @@
                 <button id="browse-btn">Browse...</button>
             </div>
             <div id="controls-bar">
-                <input type="search" id="search-input" placeholder="Search comps...">
-                <div id="category-filters"></div>
+                <input type="search" id="search-input" placeholder="Search compositions..." aria-label="Search compositions" autocomplete="off" spellcheck="false">
+                <div id="category-filters" role="tablist" aria-label="Category filters"></div>
             </div>
         </header>
 
-        <main id="stash-grid">
+        <main id="stash-grid" role="main" aria-label="Composition library">
             <!-- Comps will be rendered here by JS -->
         </main>
 
